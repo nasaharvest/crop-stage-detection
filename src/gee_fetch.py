@@ -303,9 +303,9 @@ def _calculate_sentinel2_data(
     scl_band = s2_img.select("SCL")
     reducer_args = {"reducer": ee.Reducer.count(), "geometry": ee_geom, "scale": 20}
     total_px = ee.Number(scl_band.reduceRegion(**reducer_args).get("SCL"))
-    invalid_mask = scl_band.eq(2).Or(scl_band.eq(4)).Or(scl_band.eq(5)).Not()
-    valid_px = ee.Number(scl_band.updateMask(invalid_mask).reduceRegion(**reducer_args).get("SCL"))
-    scl_pct = ee.Number(ee.Algorithms.If(total_px.gt(0), valid_px.divide(total_px).multiply(100).round(), 0))
+    cloud_mask = scl_band.eq(2).Or(scl_band.eq(4)).Or(scl_band.eq(5)).Not()
+    cloud_px = ee.Number(scl_band.updateMask(cloud_mask).reduceRegion(**reducer_args).get("SCL"))
+    scl_pct = ee.Number(ee.Algorithms.If(total_px.gt(0), cloud_px.divide(total_px).multiply(100).round(), 0))
 
     result = s2_img.set({"date": date, "poly_name": poly_name, "scl_clouds_percent": scl_pct})
     result = result.set(cs_band.reduceRegion(reducer=ee.Reducer.percentile([10]), geometry=ee_geom, scale=10).rename(["cs"], ["p10_cs"]))
@@ -331,9 +331,9 @@ def _calculate_sentinel2_data_without_cs(
     scl_band = s2_img.select("SCL")
     reducer_args = {"reducer": ee.Reducer.count(), "geometry": ee_geom, "scale": 20}
     total_px = ee.Number(scl_band.reduceRegion(**reducer_args).get("SCL"))
-    invalid_mask = scl_band.eq(2).Or(scl_band.eq(4)).Or(scl_band.eq(5)).Not()
-    valid_px = ee.Number(scl_band.updateMask(invalid_mask).reduceRegion(**reducer_args).get("SCL"))
-    scl_pct = ee.Number(ee.Algorithms.If(total_px.gt(0), valid_px.divide(total_px).multiply(100).round(), 0))
+    cloud_mask = scl_band.eq(2).Or(scl_band.eq(4)).Or(scl_band.eq(5)).Not()
+    cloud_px = ee.Number(scl_band.updateMask(cloud_mask).reduceRegion(**reducer_args).get("SCL"))
+    scl_pct = ee.Number(ee.Algorithms.If(total_px.gt(0), cloud_px.divide(total_px).multiply(100).round(), 0))
 
     result = s2_img.set({"date": date, "poly_name": poly_name, "scl_clouds_percent": scl_pct})
     optical_bands = [b for b in bands_list if "B" in b]
@@ -566,7 +566,7 @@ def fetch_ndvi(
     poly_name: str | None = None,
     min_area_ha: float = 0.04,
     max_area_ha: float = 200,
-    buffer_m: int = -10,
+    buffer_m: float = -10,
     sn2_p10_cs: float = 0.5,
     sn2_cs_threshold: float = 0.6,
 ) -> pd.DataFrame:
@@ -585,7 +585,7 @@ def fetch_ndvi(
         Label used in the output ``poly_name`` column and in log messages.
         Auto-derived from the input when None.
     min_area_ha, max_area_ha : float   Area bounds (ha, after buffering).
-    buffer_m : int   Buffer in metres (negative = inset; default -10 avoids boundary pixels).
+    buffer_m : float   Buffer in metres (negative = inset; default -10 avoids boundary pixels).
     sn2_p10_cs : float   Minimum Cloud Score+ 10th percentile for Sentinel-2 (default 0.5).
     sn2_cs_threshold : float   Per-pixel Cloud Score+ mask threshold (default 0.6).
 
@@ -648,7 +648,7 @@ def fetch_ndvi(
 
 def _run_single_gee(single_row_gdf, field_id, end_date, lookback_days, id_col):
     start_date = (pd.Timestamp(end_date) - pd.Timedelta(days=lookback_days)).strftime("%Y-%m-%d")
-    no_result = {id_col: field_id, "crop_stage": None, "stage_description": None, "peak_date": None, "days_since_peak": None}
+    no_result = {id_col: field_id, "crop_stage": None, "stage_description": None, "peak_date": None, "days_since_peak": None, "last_date": None}
     try:
         ndvi_df = fetch_ndvi(single_row_gdf, start_date=start_date, end_date=end_date, poly_name=str(field_id))
         if ndvi_df.empty:
@@ -656,11 +656,12 @@ def _run_single_gee(single_row_gdf, field_id, end_date, lookback_days, id_col):
         df_smooth = smooth_daily_interpolate_ndvi(ndvi_df)
         result = estimate_stage_adaptive(df_smooth["NDVI_smooth"].to_numpy(), dates=df_smooth["date"])
         return {
-            id_col:            field_id,
-            "crop_stage":      result["Stage"],
+            id_col:              field_id,
+            "crop_stage":        result["Stage"],
             "stage_description": result["Stage_description"],
-            "peak_date":       result.get("Peak_date"),
-            "days_since_peak": result.get("Days_since_peak"),
+            "peak_date":         result.get("Peak_date"),
+            "days_since_peak":   result.get("Days_since_peak"),
+            "last_date":         result.get("Last_date"),
         }
     except Exception as e:
         logger.error(f"Crop stage failed for {field_id}: {e}")
@@ -672,6 +673,7 @@ def run_crop_stage_from_gee(
     id_col: str = "field_id",
     lookback_days: int = 150,
     max_workers: int = 16,
+    end_date: str | None = None,
 ) -> gpd.GeoDataFrame:
     """
     Fetch GEE NDVI and estimate the crop stage for every polygon in a GeoDataFrame.
@@ -683,14 +685,17 @@ def run_crop_stage_from_gee(
     gdf : gpd.GeoDataFrame
         One row per field. Must contain ``id_col`` and a geometry column.
     id_col : str   Column name for the unique field identifier (default ``"field_id"``).
-    lookback_days : int   Days of NDVI history to fetch before today (default 150).
+    lookback_days : int   Days of NDVI history to fetch (default 150).
     max_workers : int   Thread pool size (default 16).
+    end_date : str or None
+        End date ``"YYYY-MM-DD"`` for the NDVI fetch window. Defaults to today
+        when None. Set to a past date for historical analysis.
 
     Returns
     -------
     gpd.GeoDataFrame
         Input GeoDataFrame with added columns:
-        ``[crop_stage, stage_description, peak_date, days_since_peak]``.
+        ``[crop_stage, stage_description, peak_date, days_since_peak, last_date]``.
 
     Example
     -------
@@ -701,7 +706,11 @@ def run_crop_stage_from_gee(
     >>> results = run_crop_stage_from_gee(gdf, id_col="FID", lookback_days=180)
     >>> print(results[["FID", "crop_stage", "days_since_peak"]])
     """
-    end_date = (pd.Timestamp.today() + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+    end_date = (
+        (pd.Timestamp.today() + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+        if end_date is None
+        else end_date
+    )
     logger.info(f"Running GEE crop stage for {len(gdf)} fields (lookback={lookback_days} days)")
 
     results = []
@@ -715,7 +724,7 @@ def run_crop_stage_from_gee(
 
     results_df = pd.DataFrame(results).set_index(id_col)
     gdf = gdf.set_index(id_col).copy()
-    for col in ["crop_stage", "stage_description", "peak_date", "days_since_peak"]:
+    for col in ["crop_stage", "stage_description", "peak_date", "days_since_peak", "last_date"]:
         if col in results_df.columns:
             gdf[col] = results_df[col]
     return gdf.reset_index()

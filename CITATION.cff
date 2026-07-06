@@ -3,7 +3,7 @@ type: software
 message: "If you use this software, please cite it as below."
 title: "Crop Stage Detection"
 version: "1.0.0"
-date-released: "2026-01-01"
+date-released: "2026-07-06"
 authors:
   - family-names: Pelta
     given-names: Ran

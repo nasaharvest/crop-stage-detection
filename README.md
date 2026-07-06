@@ -35,6 +35,8 @@ The curve is divided into five generic stages:
 
 ## Installation
 
+Requires Python 3.9+.
+
 ```bash
 git clone https://github.com/nasaharvest/crop-stage-detection.git
 cd crop-stage-detection
@@ -150,7 +152,7 @@ crop-stage-detection/
 | `Stage` | str | Stage label: A, B, C, D, E, or "Insufficient Data" |
 | `Stage_description` | str | Human-readable stage name |
 | `Value` | float | NDVI at the last observation |
-| `Velocity` | float | Kalman-estimated rate of change (NDVI/day) |
+| `Velocity` | float or None | Kalman-estimated rate of change (NDVI/day); None for stage C |
 | `Last_date` | Timestamp | Date of the last observation |
 | `Peak_date` | Timestamp | Date of the detected seasonal peak (or None) |
 | `Days_since_peak` | int | Days elapsed since peak (or None) |

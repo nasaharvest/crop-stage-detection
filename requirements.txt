@@ -1,5 +1,6 @@
 numpy>=1.24
 pandas>=2.0
 scipy>=1.11
+matplotlib>=3.7
 tqdm>=4.66
 statsmodels>=0.14  # fallback smoother; used only if Whittaker fails
