@@ -1,7 +1,7 @@
 """
 crop_stage.py
 -------------
-Phenological stage estimation from NDVI time series.
+Crop stage estimation from NDVI time series.
 
 Most row crops and vegetables follow a similar NDVI trajectory over a growing
 season — a bell-curve-like rise to peak vegetative vigor, followed by a decline
@@ -238,7 +238,7 @@ def estimate_stage_adaptive(
     stage_descriptions: Optional[dict[str, str]] = None,
 ) -> dict:
     """
-    Estimate the current phenological stage of a crop from an NDVI time series.
+    Estimate the current crop stage from an NDVI time series.
 
     The model is crop-agnostic: it detects where the current observation falls
     on the characteristic bell-curve NDVI trajectory shared by most row crops

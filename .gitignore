@@ -7,7 +7,9 @@ build/
 
 .env
 *.pem
-*.json
+credentials.json
+service-account*.json
+*-credentials*.json
 
 .ipynb_checkpoints/
 *.ipynb_checkpoints
@@ -18,3 +20,8 @@ env/
 
 .DS_Store
 Thumbs.db
+
+.pytest_cache/
+.coverage
+htmlcov/
+*.log

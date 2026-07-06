@@ -1,0 +1,3 @@
+earthengine-api>=0.1.370
+geopandas>=0.14
+shapely>=2.0

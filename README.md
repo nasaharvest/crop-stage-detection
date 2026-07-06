@@ -44,15 +44,24 @@ pip install -r requirements.txt
 For the GEE workflow only (`src/gee_fetch.py`):
 
 ```bash
-pip install earthengine-api geopandas shapely
+pip install -r requirements-gee.txt
 earthengine authenticate
 ```
 
 For GEE authentication, see the [Earth Engine authentication guide](https://developers.google.com/earth-engine/guides/auth).
 
+To verify the installation:
+
+```bash
+python test_basic.py
+```
+
 ## Quick start — Bring Your Own Data (no GEE)
 
 ```python
+import sys
+sys.path.insert(0, "src")
+
 import pandas as pd
 from crop_stage import run_crop_stage_from_dataframe
 
@@ -68,9 +77,14 @@ print(result["Stage"], "—", result["Stage_description"])
 | `date` | datetime | Any parseable format, irregular spacing is fine |
 | `NDVI` | float [0–1] | Cloud-free observations only |
 
+The sample CSV also contains `sensor` and `field_id` columns — these are ignored in single-field mode and used only in the multi-field batch example.
+
 ## Quick start — GEE fetch
 
 ```python
+import sys
+sys.path.insert(0, "src")
+
 import ee
 ee.Initialize()   # must come first
 
@@ -87,7 +101,9 @@ result = estimate_stage_adaptive(
     df_smooth["NDVI_smooth"].to_numpy(),
     dates=df_smooth["date"],
 )
-print(result["Stage"], result["Days_since_peak"])
+print(result["Stage"], "—", result["Stage_description"])
+if result.get("Peak_date"):
+    print(f"Peak: {result['Peak_date'].date()}  |  Days since peak: {result['Days_since_peak']}")
 ```
 
 ## Batch — many fields at once
@@ -108,14 +124,21 @@ results = run_crop_stage_from_gee(gdf, id_col="field_id", lookback_days=180)
 ```
 crop-stage-detection/
 ├── src/
-│   ├── crop_stage.py     Core model (no GEE dependency)
-│   └── gee_fetch.py      Optional GEE layer
+│   ├── crop_stage.py       Core model (no GEE dependency)
+│   └── gee_fetch.py        Optional GEE layer
 ├── examples/
-│   ├── 01_byod.ipynb     BYOD walkthrough with visualisation
-│   └── 02_gee.ipynb      Full GEE pipeline
+│   ├── 01_byod.ipynb       BYOD walkthrough with visualisation
+│   └── 02_gee.ipynb        Full GEE pipeline
 ├── sample_data/
-│   └── sample_ndvi.csv   One field × one season (works out of the box)
-└── requirements.txt
+│   └── sample_ndvi.csv     One field × one season (works out of the box)
+├── docs/
+│   ├── crop_stages_legend.png
+│   └── crop_stage_detection.gif
+├── requirements.txt        Core dependencies (BYOD)
+├── requirements-gee.txt    Additional dependencies for GEE workflow
+├── CITATION.cff
+├── LICENSE
+└── test_basic.py           Smoke test — run after install to verify
 ```
 
 ## Output fields
