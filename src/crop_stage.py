@@ -477,6 +477,8 @@ def run_crop_stage_from_dataframe(
             .assign(date=lambda d: pd.to_datetime(d["date"]))
             .dropna()
         )
+        if len(df_std) < 3:
+            return estimate_stage_adaptive(np.array([]))
         df_smooth = smooth_daily_interpolate_ndvi(df_std)
         return estimate_stage_adaptive(
             df_smooth["NDVI_smooth"].to_numpy(),

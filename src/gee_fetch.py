@@ -24,7 +24,6 @@ Optional dependencies (not needed for the BYOD workflow in crop_stage.py):
 
 from __future__ import annotations
 
-import json
 import logging
 import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
