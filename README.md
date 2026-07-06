@@ -2,6 +2,8 @@
 
 A crop-agnostic model for estimating the crop stage from an NDVI time series — no crop-specific calibration needed.
 
+![Crop Stage Detection Demo](docs/crop_stage_detection.gif)
+
 ## How it works
 
 Most row crops and vegetables follow the same characteristic NDVI trajectory
