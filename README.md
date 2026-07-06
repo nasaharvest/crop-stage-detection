@@ -169,4 +169,4 @@ If you use this model in your research, please cite:
 
 ## Authors
 
-Developed by Ran Pelta (Agmatix / GrowersTech, NASA Harvest)
+Developed by [Ran Pelta](https://www.linkedin.com/in/ran-pelta) (Agmatix / GrowersTech, NASA Harvest)
