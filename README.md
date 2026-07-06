@@ -1,7 +1,6 @@
 # Crop Stage Detection
 
-A crop-agnostic model for estimating the phenological stage of any row crop or
-vegetable from an NDVI time series — no crop-specific calibration needed.
+A crop-agnostic model for estimating the crop stage from an NDVI time series — no crop-specific calibration needed.
 
 ## How it works
 
@@ -24,22 +23,17 @@ The curve is divided into five generic stages:
 | **D** | Senescence | NDVI in mid-range and falling, peak confirmed |
 | **E** | Post-harvest / residue | NDVI below lower threshold, peak confirmed |
 
-Stage boundaries adapt to each field's actual seasonal NDVI range using an
-adaptive upper threshold (90th percentile by default) and a fixed lower
-threshold (0.35 by default). A Kalman filter tracks the rate of change
-(velocity) to distinguish greenup from senescence in the mid-range band.
+**How the model works:**
 
-**Technical pipeline:** Raw satellite observations (irregularly spaced, ~5–12
-days) are resampled to a daily grid and gap-filled using PCHIP interpolation,
-then smoothed with a Whittaker penalized least-squares filter (λ = 6 000) to
-suppress noise while preserving the seasonal curve shape. A constant-velocity
-Kalman filter estimates the current rate of NDVI change. Stage assignment
-combines the current NDVI value relative to the adaptive thresholds, the
-Kalman velocity, and whether a confirmed seasonal peak has been detected.
+1. **Input** — the model takes a raw NDVI time series as input. NDVI can be fetched from Google Earth Engine (GEE) for GEE users, or you can bring your own data if you already have an NDVI time series.
+2. **Preprocessing** — raw observations (typically irregularly spaced) are resampled to a daily grid, gap-filled using PCHIP interpolation, and then smoothed with a Whittaker filter to reduce noise while preserving the seasonal curve shape.
+3. **Stage assignment** — the stage of the last observation is determined by three signals: (1) where the current NDVI falls relative to an adaptive upper threshold (90th percentile of the series) and a fixed lower threshold, (2) the direction of change (rising or falling), estimated via a Kalman filter, and (3) whether a confirmed seasonal peak has already occurred in the series.
 
 ## Installation
 
 ```bash
+git clone https://github.com/nasaharvest/crop-stage-detection.git
+cd crop-stage-detection
 pip install -r requirements.txt
 ```
 
@@ -49,6 +43,8 @@ For the GEE workflow only (`src/gee_fetch.py`):
 pip install earthengine-api geopandas shapely
 earthengine authenticate
 ```
+
+For GEE authentication, see the [Earth Engine authentication guide](https://developers.google.com/earth-engine/guides/auth).
 
 ## Quick start — Bring Your Own Data (no GEE)
 
@@ -93,16 +89,17 @@ print(result["Stage"], result["Days_since_peak"])
 ## Batch — many fields at once
 
 ```python
-# BYOD
+# BYOD — df contains multiple fields, each identified by a field_id column
 from crop_stage import run_crop_stage_from_dataframe
 results = run_crop_stage_from_dataframe(df, id_col="field_id")
+# returns a DataFrame with one row per field
 
 # GEE
 from gee_fetch import run_crop_stage_from_gee
 results = run_crop_stage_from_gee(gdf, id_col="field_id", lookback_days=180)
 ```
 
-## Repository structure
+## Project structure
 
 ```
 crop-stage-detection/
