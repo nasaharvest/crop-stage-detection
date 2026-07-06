@@ -34,7 +34,7 @@ result = estimate_stage_adaptive(
 )
 assert result["Stage"] in ("A", "B", "C", "D", "E", "Insufficient Data")
 print(f"OK  ->  Stage {result['Stage']}: {result['Stage_description']}")
-if result["Value"] is not None:
+if result["Value"] is not None and result["Upper_threshold"] is not None:
     print(f"       Value={result['Value']:.3f}  Upper={result['Upper_threshold']:.3f}  Lower={result['Lower_threshold']:.3f}")
 if result["Peak_date"]:
     print(f"       Peak={result['Peak_date'].date()}  Days since peak={result['Days_since_peak']}")

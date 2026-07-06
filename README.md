@@ -153,7 +153,7 @@ crop-stage-detection/
 | `Stage_description` | str | Human-readable stage name |
 | `Value` | float | NDVI at the last observation |
 | `Velocity` | float or None | Kalman-estimated rate of change (NDVI/day); None for stage C and "Insufficient Data" |
-| `Last_date` | Timestamp | Date of the last observation |
+| `Last_date` | Timestamp or None | Date of the last observation |
 | `Peak_date` | Timestamp | Date of the detected seasonal peak (or None) |
 | `Days_since_peak` | int | Days elapsed since peak (or None) |
 | `Upper_threshold` | float or None | Adaptive upper threshold used; None for "Insufficient Data" |

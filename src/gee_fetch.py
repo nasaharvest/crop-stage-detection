@@ -654,7 +654,7 @@ def _run_single_gee(single_row_gdf, field_id, end_date, lookback_days, id_col):
     no_result = {id_col: field_id, "crop_stage": None, "stage_description": None, "peak_date": None, "days_since_peak": None, "last_date": None}
     try:
         ndvi_df = fetch_ndvi(single_row_gdf, start_date=start_date, end_date=end_date, poly_name=str(field_id))
-        if ndvi_df.empty:
+        if ndvi_df.empty or len(ndvi_df) < 3:
             return no_result
         df_smooth = smooth_daily_interpolate_ndvi(ndvi_df)
         result = estimate_stage_adaptive(df_smooth["NDVI_smooth"].to_numpy(), dates=df_smooth["date"])

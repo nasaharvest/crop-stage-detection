@@ -364,7 +364,10 @@ def estimate_stage_adaptive(
     last_peak_idx = _find_last_peak(ndvi, upper_thresh, min_peak_width)
     had_peak = last_peak_idx is not None and last_peak_idx < len(ndvi) - min_peak_width
 
-    stage = ("D" if (had_peak and velocity <= 0) else "B") if current >= lower_threshold else ("E" if had_peak else "A")
+    if current >= lower_threshold:
+        stage = "D" if (had_peak and velocity <= 0) else "B"
+    else:
+        stage = "E" if had_peak else "A"
 
     peak_date = None
     if had_peak and dates is not None:
