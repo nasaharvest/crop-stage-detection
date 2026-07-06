@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Crop Stage Detection"
+authors:
+  - family-names: Pelta
+    given-names: Ran
+    affiliation: "Agmatix / GrowersTech, NASA Harvest"
+year: 2026
+url: "https://github.com/nasaharvest/crop-stage-detection"
+license: Apache-2.0

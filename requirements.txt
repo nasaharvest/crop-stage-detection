@@ -1,0 +1,10 @@
+numpy>=1.24
+pandas>=2.0
+scipy>=1.11
+statsmodels>=0.14
+geopandas>=0.14
+tqdm>=4.66
+
+# Optional — GEE workflow only (src/gee_fetch.py)
+# earthengine-api>=0.1.370
+# shapely>=2.0
