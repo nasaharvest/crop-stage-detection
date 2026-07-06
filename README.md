@@ -145,6 +145,9 @@ to `estimate_stage_adaptive` or `run_crop_stage_from_dataframe`.
 | `lower_threshold` | 0.35 | Fixed lower threshold |
 | `min_peak_width` | 5 | Minimum consecutive days above upper threshold to confirm a peak |
 | `min_observations` | 30 | Minimum series length for a reliable estimate |
+| `date_col` | `"date"` | Column name for dates in the input DataFrame (``run_crop_stage_from_dataframe``) |
+| `ndvi_col` | `"NDVI"` | Column name for NDVI values in the input DataFrame (``run_crop_stage_from_dataframe``) |
+| `stage_descriptions` | built-in | Custom ``{label: description}`` dict to rename or translate stage labels |
 
 ## License
 
@@ -155,7 +158,7 @@ Apache 2.0 — see [LICENSE](LICENSE).
 If you use this model in your research, please cite:
 
 ```bibtex
-@software{pelta2025cropstage,
+@software{pelta2026cropstage,
   author       = {Pelta, Ran},
   title        = {Crop Stage Detection},
   year         = {2026},
