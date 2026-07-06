@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 
 def get_utm_crs_from_lonlat(lon: float, lat: float) -> int:
     """Return the EPSG code of the UTM zone that contains (lon, lat)."""
-    zone_number = int((lon + 180) / 6) + 1
+    zone_number = min(int((lon + 180) / 6) + 1, 60)
     hemisphere = "326" if lat >= 0 else "327"
     return int(f"{hemisphere}{zone_number:02d}")
 
@@ -125,7 +125,11 @@ def _polygon_input_to_gdf(polygon_input) -> tuple[gpd.GeoDataFrame | None, str]:
     if isinstance(polygon_input, dict):
         geojson_type = polygon_input.get("type", "")
         if geojson_type == "FeatureCollection":
-            feature = polygon_input["features"][0]
+            features_list = polygon_input.get("features", [])
+            if not features_list:
+                logger.error("[SKIP] GeoJSON FeatureCollection has no features.")
+                return None, "unnamed_polygon"
+            feature = features_list[0]
         elif geojson_type == "Feature":
             feature = polygon_input
         else:
@@ -307,7 +311,7 @@ def _calculate_sentinel2_data(
     scl_pct = ee.Number(ee.Algorithms.If(total_px.gt(0), cloud_px.divide(total_px).multiply(100).round(), 0))
 
     result = s2_img.set({"date": date, "poly_name": poly_name, "scl_clouds_percent": scl_pct})
-    result = result.set(cs_band.reduceRegion(reducer=ee.Reducer.percentile([10]), geometry=ee_geom, scale=10).rename(["cs"], ["p10_cs"]))
+    result = result.set(cs_band.reduceRegion(reducer=ee.Reducer.percentile([10]), geometry=ee_geom, scale=10).rename(["cs_p10"], ["p10_cs"]))
 
     optical_bands = [b for b in bands_list if "B" in b]
     if optical_bands:

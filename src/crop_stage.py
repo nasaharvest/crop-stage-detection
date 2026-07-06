@@ -125,7 +125,7 @@ def smooth_daily_interpolate_ndvi(df: pd.DataFrame) -> pd.DataFrame:
     Returns
     -------
     pd.DataFrame
-        Columns ``date`` (daily, dtype datetime64) and ``NDVI_smooth``.
+        Columns ``date`` (daily, dtype datetime64), ``NDVI`` (PCHIP-interpolated daily), and ``NDVI_smooth``.
 
     Notes
     -----
@@ -286,11 +286,11 @@ def estimate_stage_adaptive(
         ``Stage``             str    Stage label (A–E or "Insufficient Data")
         ``Stage_description`` str    Human-readable description
         ``Value``             float  Last NDVI value in the series
-        ``Velocity``          float  Kalman-estimated rate of change (NDVI/day)
+        ``Velocity``          float or None  Kalman-estimated rate of change (NDVI/day); None for stage C and "Insufficient Data"
         ``Last_date``         pd.Timestamp or None
         ``Peak_date``         pd.Timestamp or None
         ``Days_since_peak``   int or None
-        ``Upper_threshold``   float
+        ``Upper_threshold``   float or None  Adaptive upper threshold; None for "Insufficient Data"
         ``Lower_threshold``   float
 
     Decision logic
