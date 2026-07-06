@@ -29,6 +29,14 @@ adaptive upper threshold (90th percentile by default) and a fixed lower
 threshold (0.35 by default). A Kalman filter tracks the rate of change
 (velocity) to distinguish greenup from senescence in the mid-range band.
 
+**Technical pipeline:** Raw satellite observations (irregularly spaced, ~5–12
+days) are resampled to a daily grid and gap-filled using PCHIP interpolation,
+then smoothed with a Whittaker penalized least-squares filter (λ = 6 000) to
+suppress noise while preserving the seasonal curve shape. A constant-velocity
+Kalman filter estimates the current rate of NDVI change. Stage assignment
+combines the current NDVI value relative to the adaptive thresholds, the
+Kalman velocity, and whether a confirmed seasonal peak has been detected.
+
 ## Installation
 
 ```bash
@@ -126,6 +134,9 @@ crop-stage-detection/
 | `Lower_threshold` | float | Fixed lower threshold used |
 
 ## Key parameters
+
+All thresholds and filter settings are configurable and can be passed directly
+to `estimate_stage_adaptive` or `run_crop_stage_from_dataframe`.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
