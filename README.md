@@ -27,14 +27,48 @@ The curve is divided into five generic stages:
 | **D** | Senescence | NDVI in mid-range and falling, peak confirmed |
 | **E** | Post-harvest / residue / bare soil | NDVI below lower threshold, peak confirmed |
 
-**Two entry points — pick the one that fits your workflow:**
+The input to the model is an NDVI time series in tabular format. Two entry points — pick the one that fits your workflow:
 
-- **GEE** — `run_crop_stage_from_gee(polygon, ...)` takes a single field polygon in any supported format, fetches Sentinel-2 and Landsat NDVI from Google Earth Engine, and returns the crop stage for the last available observation.
-- **Bring Your Own Data** — `run_crop_stage_from_dataframe(df, ...)` takes any NDVI time series in tabular format from any source. Pass `id_col` to process multiple fields in one call.
+- **Google Earth Engine (GEE)** — `run_crop_stage_from_gee(polygon, ...)` fetches Sentinel-2 and Landsat NDVI from GEE and returns the crop stage. `polygon` is the only required argument and accepts any supported format (see below). By default the lookback window ends today; pass `end_date="YYYY-MM-DD"` to pin it to a specific date.
+- **Bring Your Own Data** — `run_crop_stage_from_dataframe(df, ...)` takes NDVI time series in tabular format (see `sample_data/sample_ndvi.csv`). Pass `id_col` to process multiple fields in one call; omit it for a single field.
 
-Both functions work on one field at a time. For the GEE function, use a loop or `ThreadPoolExecutor` for multiple fields (see `examples/02_gee.ipynb`, Section 5).
+The GEE function works on one polygon at a time. For multiple fields, use a loop or `ThreadPoolExecutor` (see `examples/02_gee.ipynb`, Section 5).
 
-Both functions handle preprocessing internally: observations are resampled to a daily grid, gap-filled with PCHIP interpolation, and smoothed with a Whittaker filter. If your data is already daily or pre-smoothed, the effect is negligible. The stage is then assigned from three signals on the smoothed series: where the current NDVI falls relative to adaptive thresholds, whether it is rising or falling (estimated via a Kalman filter), and whether a seasonal peak has already been confirmed.
+Both functions handle preprocessing internally: observations are resampled to daily intervals, gap-filled with PCHIP interpolation, and smoothed with a Whittaker filter. If your data is already daily or pre-smoothed, the effect on your NDVI values is negligible. The stage is then assigned from three signals on the smoothed series:
+
+| Signal | Description |
+|--------|-------------|
+| NDVI level | Where the current value falls relative to adaptive lower and upper thresholds |
+| Trend | Whether NDVI is rising or falling (estimated via a Kalman filter) |
+| Peak history | Whether a seasonal peak has already been confirmed |
+
+Stage assignment:
+
+| Stage | NDVI level | Trend | Peak confirmed |
+|-------|------------|-------|:--------------:|
+| A — Bare soil / planting / emergence | Below lower threshold | Any | No |
+| B — Greenup / rapid growth | Between thresholds | Rising | No |
+| C — Peak maturity | At or above upper threshold | Any | — |
+| D — Senescence | Between thresholds | Falling | Yes |
+| E — Post-harvest / residue / bare soil | Below lower threshold | Any | Yes |
+
+### Supported polygon input formats (GEE workflow)
+
+`fetch_ndvi` and `run_crop_stage_from_gee` accept the polygon in any of these
+formats. Sample files for each format are in `sample_data/` and demonstrated
+in `examples/02_gee.ipynb`.
+
+| Format | UTM supported | Where CRS is set |
+|--------|:---:|---|
+| File path — `.shp`, `.gpkg` | Yes | Embedded in file (`.prj` / file metadata) |
+| File path — `.zip` (zipped shapefile) | Yes | `.prj` sidecar inside the zip |
+| File path — `.geojson`, `.kml`, `.kmz` | No | WGS84 by spec |
+| `gpd.GeoDataFrame` / `gpd.GeoSeries` | Yes | `.crs` attribute on the object |
+| `shapely.geometry.Polygon` | No | No CRS — WGS84 inferred from bounds |
+| GeoJSON `dict` | No | WGS84 by spec (RFC 7946) |
+| `list` of `[lon, lat]` pairs | No | WGS84 assumed |
+
+If no CRS is found but the coordinates look like lon/lat (−180..180, −90..90), WGS84 is inferred automatically with a log warning. If no CRS is found and the coordinates don't look like WGS84, the polygon is rejected.
 
 ## Installation
 
@@ -55,7 +89,7 @@ pip install -r requirements.txt
 
 **Option B — Full GEE workflow**
 
-If you want to fetch NDVI from Google Earth Engine as well, install both files — `requirements-gee.txt` adds the GEE-specific packages on top of the core ones:
+If you want to fetch NDVI from GEE as well, install both files — `requirements-gee.txt` adds the GEE-specific packages on top of the core ones:
 
 ```bash
 pip install -r requirements.txt
@@ -110,21 +144,6 @@ print(result["Stage"], "—", result["Stage_description"])
 if result.get("Peak_date"):
     print(f"Peak: {result['Peak_date'].date()}  |  Days since peak: {result['Days_since_peak']}")
 ```
-
-## Supported polygon input formats (GEE workflow)
-
-`fetch_ndvi` and `run_crop_stage_from_gee` accept the polygon in any of these formats:
-
-| Format | UTM supported | Where CRS is set |
-|--------|:---:|---|
-| File path — `.shp`, `.gpkg` | Yes | Embedded in file (`.prj` / file metadata) |
-| File path — `.geojson`, `.kml` | No | WGS84 by spec |
-| `gpd.GeoDataFrame` / `gpd.GeoSeries` | Yes | `.crs` attribute on the object |
-| `shapely.geometry.Polygon` | No | No CRS — WGS84 inferred from bounds |
-| GeoJSON `dict` | No | WGS84 by spec (RFC 7946) |
-| `list` of `[lon, lat]` pairs | No | WGS84 assumed |
-
-If no CRS is found but the coordinates look like lon/lat (−180..180, −90..90), WGS84 is inferred automatically with a log warning. If no CRS is found and the coordinates don't look like WGS84, the polygon is rejected.
 
 ## Multiple fields
 
