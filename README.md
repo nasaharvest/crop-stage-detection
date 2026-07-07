@@ -21,11 +21,11 @@ The curve is divided into five generic stages:
 
 | Stage | Name | Description |
 |-------|------|-------------|
-| **A** | Bare soil / emergence | NDVI below lower threshold, no prior peak |
+| **A** | Bare soil / planting / emergence | NDVI below lower threshold, no prior peak |
 | **B** | Greenup / rapid growth | NDVI in mid-range and rising |
 | **C** | Peak maturity | NDVI at or above upper threshold |
 | **D** | Senescence | NDVI in mid-range and falling, peak confirmed |
-| **E** | Post-harvest / residue | NDVI below lower threshold, peak confirmed |
+| **E** | Post-harvest / residue / bare soil | NDVI below lower threshold, peak confirmed |
 
 **How the model works:**
 

@@ -329,21 +329,38 @@ def _calculate_sentinel2_data_without_cs(
     poly_name: str,
     bands_list: list,
 ) -> ee.Image:
-    """Compute Sentinel-2 band means WITHOUT Cloud Score+ (fallback)."""
+    """Compute Sentinel-2 band means WITHOUT Cloud Score+ (SCL-only fallback).
+
+    Only pixels with SCL class 2 (dark area), 4 (vegetation), or 5 (bare soil)
+    are treated as clear. If any pixel in the polygon falls outside those classes,
+    the entire image is flagged as cloudy (p10_cs=0.0) so it is rejected by the
+    standard remove_clouds_sentinel2 filter. NDVI and reflectance are computed
+    only over the clear pixels.
+    """
     date = s2_img.date().format("YYYY-MM-dd")
     scl_band = s2_img.select("SCL")
     reducer_args = {"reducer": ee.Reducer.count(), "geometry": ee_geom, "scale": 20}
     total_px = ee.Number(scl_band.reduceRegion(**reducer_args).get("SCL"))
-    cloud_mask = scl_band.eq(2).Or(scl_band.eq(4)).Or(scl_band.eq(5)).Not()
-    cloud_px = ee.Number(scl_band.updateMask(cloud_mask).reduceRegion(**reducer_args).get("SCL"))
-    scl_pct = ee.Number(ee.Algorithms.If(total_px.gt(0), cloud_px.divide(total_px).multiply(100).round(), 0))
 
-    result = s2_img.set({"date": date, "poly_name": poly_name, "scl_clouds_percent": scl_pct})
+    clear_mask = scl_band.eq(2).Or(scl_band.eq(4)).Or(scl_band.eq(5))
+    clear_px = ee.Number(scl_band.updateMask(clear_mask).reduceRegion(**reducer_args).get("SCL"))
+
+    all_clear = total_px.gt(0).And(clear_px.eq(total_px))
+    p10_cs_value = ee.Number(ee.Algorithms.If(all_clear, 1.0, 0.0))
+    scl_pct = ee.Number(ee.Algorithms.If(
+        total_px.gt(0),
+        ee.Number(1).subtract(clear_px.divide(total_px)).multiply(100).round(),
+        100,
+    ))
+
+    s2_masked = s2_img.updateMask(clear_mask)
+    result = s2_img.set({"date": date, "poly_name": poly_name, "scl_clouds_percent": scl_pct, "p10_cs": p10_cs_value})
+
     optical_bands = [b for b in bands_list if "B" in b]
     if optical_bands:
-        result = result.set(s2_img.select(optical_bands).divide(10_000).reduceRegion(reducer=ee.Reducer.mean(), geometry=ee_geom, scale=10))
+        result = result.set(s2_masked.select(optical_bands).divide(10_000).reduceRegion(reducer=ee.Reducer.mean(), geometry=ee_geom, scale=10))
     if "NDVI" in bands_list:
-        ndvi = s2_img.normalizedDifference(["B8", "B4"]).rename("NDVI")
+        ndvi = s2_masked.normalizedDifference(["B8", "B4"]).rename("NDVI")
         result = result.set(ndvi.reduceRegion(reducer=ee.Reducer.mean(), geometry=ee_geom, scale=10))
 
     return result
@@ -643,9 +660,12 @@ def fetch_ndvi(
         return pd.DataFrame()
 
     df = pd.concat(parts, ignore_index=True)
+    _SENSOR_PRIORITY = {"sn2": 3, "lc09": 2, "lc08": 1}
+    df["_priority"] = df["sensor"].map(_SENSOR_PRIORITY).fillna(0)
     df = (
-        df.sort_values(["date", "sensor"])
-        .drop_duplicates(subset=["date"], keep="last")  # S2 preferred (sorted last alphabetically vs lc08/lc09)
+        df.sort_values(["date", "_priority"])
+        .drop_duplicates(subset=["date"], keep="last")  # highest priority kept: sn2 > lc09 > lc08
+        .drop(columns=["_priority"])
         .reset_index(drop=True)
     )
     return df
@@ -697,8 +717,10 @@ def run_crop_stage_from_gee(
     lookback_days : int   Days of NDVI history to fetch (default 150).
     max_workers : int   Thread pool size (default 16).
     end_date : str or None
-        End date ``"YYYY-MM-DD"`` for the NDVI fetch window. Defaults to today
-        when None. Set to a past date for historical analysis.
+        End date ``"YYYY-MM-DD"`` for the NDVI fetch window. Defaults to
+        tomorrow when None — GEE's ``filterDate`` is exclusive on the end date,
+        so using tomorrow ensures today's satellite acquisitions are included.
+        Set to a past date for historical analysis.
 
     Returns
     -------

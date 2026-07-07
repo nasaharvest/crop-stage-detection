@@ -16,10 +16,11 @@ print("OK")
 
 print("2. Loading sample data...", end=" ")
 import pandas as pd
-df = pd.read_csv("sample_data/sample_ndvi.csv", parse_dates=["date"])
-assert len(df) > 0, "Empty CSV"
-assert "date" in df.columns and "NDVI" in df.columns
-print(f"OK ({len(df)} rows)")
+df_all = pd.read_csv("sample_data/sample_ndvi.csv", parse_dates=["date"])
+assert len(df_all) > 0, "Empty CSV"
+assert "date" in df_all.columns and "NDVI" in df_all.columns
+df = df_all[df_all["field_id"] == "field_001"].reset_index(drop=True)
+print(f"OK ({len(df_all)} rows total, {len(df)} for field_001)")
 
 print("3. Smoothing NDVI...", end=" ")
 df_smooth = smooth_daily_interpolate_ndvi(df)
@@ -45,8 +46,8 @@ assert r["Stage"] == result["Stage"]
 print("OK")
 
 print("6. run_crop_stage_from_dataframe (multi-field via id_col)...", end=" ")
-df_multi = run_crop_stage_from_dataframe(df, id_col="field_id")
-assert len(df_multi) == df["field_id"].nunique()
+df_multi = run_crop_stage_from_dataframe(df_all, id_col="field_id")
+assert len(df_multi) == df_all["field_id"].nunique()
 assert "crop_stage" in df_multi.columns
 print(f"OK ({len(df_multi)} field(s))")
 print(df_multi[["field_id", "crop_stage", "stage_description", "peak_date", "days_since_peak"]].to_string(index=False))
