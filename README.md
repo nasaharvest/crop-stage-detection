@@ -40,12 +40,22 @@ Requires Python 3.9+.
 ```bash
 git clone https://github.com/nasaharvest/crop-stage-detection.git
 cd crop-stage-detection
+```
+
+**Option A — Bring Your Own Data (no GEE)**
+
+If you already have an NDVI time series and just want to run the stage model:
+
+```bash
 pip install -r requirements.txt
 ```
 
-For the GEE workflow only (`src/gee_fetch.py`):
+**Option B — Full GEE workflow**
+
+If you want to fetch NDVI from Google Earth Engine as well, install both files — `requirements-gee.txt` adds the GEE-specific packages on top of the core ones:
 
 ```bash
+pip install -r requirements.txt
 pip install -r requirements-gee.txt
 earthengine authenticate
 ```
