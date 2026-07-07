@@ -551,6 +551,7 @@ def remove_clouds_landsat(
     if df.empty:
         return df
     df = df.copy().dropna(subset=["NDVI"])
+    df = df[df["total_pixels"] > 0]
     df["pct_clear"] = (100 * df["valid_pixels"] / df["total_pixels"]).round()
     df = df[df["pct_clear"] > min_pct_clear]
     df = (
@@ -590,6 +591,11 @@ def fetch_ndvi(
     min_area_ha, max_area_ha : float   Area bounds (ha, after buffering).
     buffer_m : float   Buffer in metres (negative = inset; default -10 avoids boundary pixels).
     sn2_p10_cs : float   Minimum Cloud Score+ 10th percentile for Sentinel-2 (default 0.5).
+                         Note: the standalone ``remove_clouds_sentinel2`` function defaults to 0.6.
+                         The difference is intentional — ``fetch_ndvi`` applies this at the
+                         whole-field level (10th percentile across all pixels), while
+                         ``remove_clouds_sentinel2`` is typically called after per-pixel masking,
+                         so a stricter threshold there is redundant.
     sn2_cs_threshold : float   Per-pixel Cloud Score+ mask threshold (default 0.6).
 
     Returns

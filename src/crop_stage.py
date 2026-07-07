@@ -362,7 +362,7 @@ def estimate_stage_adaptive(
         velocity = float(np.gradient(ndvi)[-1])
 
     last_peak_idx = _find_last_peak(ndvi, upper_thresh, min_peak_width)
-    had_peak = last_peak_idx is not None and last_peak_idx < len(ndvi) - min_peak_width
+    had_peak = last_peak_idx is not None
 
     if current >= lower_threshold:
         stage = "D" if (had_peak and velocity <= 0) else "B"
@@ -481,7 +481,7 @@ def run_crop_stage_from_dataframe(
             .dropna()
         )
         if len(df_std) < 3:
-            return estimate_stage_adaptive(np.array([]))
+            return estimate_stage_adaptive(np.array([]), **estimate_kwargs)
         df_smooth = smooth_daily_interpolate_ndvi(df_std)
         return estimate_stage_adaptive(
             df_smooth["NDVI_smooth"].to_numpy(),

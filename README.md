@@ -108,6 +108,21 @@ if result.get("Peak_date"):
     print(f"Peak: {result['Peak_date'].date()}  |  Days since peak: {result['Days_since_peak']}")
 ```
 
+## Supported polygon input formats (GEE workflow)
+
+`fetch_ndvi` and `run_crop_stage_from_gee` accept any of the following as the `polygon_input` argument:
+
+| Input type | Example |
+|-----------|---------|
+| File path (str or Path) | `"my_field.geojson"`, `"fields.shp"`, `"fields.gpkg"`, `"field.kml"` |
+| GeoJSON dict | `{"type": "Feature", "geometry": {...}, "properties": {}}` |
+| shapely Geometry | `shapely.geometry.Polygon([(lon, lat), ...])` |
+| `gpd.GeoDataFrame` | First row is used |
+| `gpd.GeoSeries` | First element is used |
+| list of `[lon, lat]` pairs | `[[lon1, lat1], [lon2, lat2], ...]` |
+
+All inputs must be in WGS84 (EPSG:4326). Coordinates are reprojected to the local UTM zone internally before fetching.
+
 ## Batch — many fields at once
 
 ```python
@@ -154,7 +169,7 @@ crop-stage-detection/
 | `Value` | float | NDVI at the last observation |
 | `Velocity` | float or None | Kalman-estimated rate of change (NDVI/day); None for stage C and "Insufficient Data" |
 | `Last_date` | Timestamp or None | Date of the last observation |
-| `Peak_date` | Timestamp | Date of the detected seasonal peak (or None) |
+| `Peak_date` | Timestamp or None | Date of the detected seasonal peak (None if no peak confirmed) |
 | `Days_since_peak` | int | Days elapsed since peak (or None) |
 | `Upper_threshold` | float or None | Adaptive upper threshold used; None for "Insufficient Data" |
 | `Lower_threshold` | float | Fixed lower threshold used |
