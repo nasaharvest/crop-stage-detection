@@ -60,14 +60,29 @@ def _polygon_input_to_gdf(polygon_input) -> tuple[gpd.GeoDataFrame | None, str]:
     """
     Normalize any supported polygon input into a (single-row GeoDataFrame, label) pair.
 
-    Supported input types
-    ---------------------
-    str | Path          file path (GeoJSON, Shapefile, GeoPackage, …)
-    shapely Geometry    CRS inferred from coordinate bounds (must look like WGS84)
-    gpd.GeoDataFrame    first row is used
-    gpd.GeoSeries       first element is used
-    dict                GeoJSON Feature / FeatureCollection / bare Geometry dict
-    list                ring of [lon, lat] pairs → Polygon
+    Supported input types and CRS handling
+    --------------------------------------
+    str | Path
+        File path (GeoJSON, Shapefile, GeoPackage, KML). CRS is read from the
+        file — Shapefiles store it in the .prj sidecar, GeoPackage in file
+        metadata. GeoJSON is always WGS84 by spec. UTM files are supported.
+        If the file has no CRS and bounds look like lon/lat, WGS84 is inferred.
+
+    gpd.GeoDataFrame | gpd.GeoSeries
+        First row/element is used. CRS is read from the .crs attribute.
+        UTM is supported — set the CRS before passing the object.
+
+    shapely Geometry
+        No CRS. WGS84 is inferred if bounds look like lon/lat (-180..180,
+        -90..90). UTM not supported for this format.
+
+    dict
+        GeoJSON Feature, FeatureCollection, or bare Geometry. WGS84 by spec
+        (RFC 7946). UTM not supported for this format.
+
+    list
+        Ring of [lon, lat] pairs → Polygon. WGS84 assumed.
+        UTM not supported for this format.
     """
     if isinstance(polygon_input, (str, Path)):
         label = Path(polygon_input).stem

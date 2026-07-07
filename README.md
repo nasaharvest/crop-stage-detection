@@ -29,8 +29,10 @@ The curve is divided into five generic stages:
 
 **Two entry points — pick the one that fits your workflow:**
 
-- **GEE** — `run_crop_stage_from_gee(gdf, ...)` takes a GeoDataFrame with one row per field, fetches Sentinel-2 and Landsat NDVI from Google Earth Engine, and returns the crop stage for each field's last available observation. Multiple fields are processed in parallel.
+- **GEE** — `run_crop_stage_from_gee(polygon, ...)` takes a single field polygon in any supported format, fetches Sentinel-2 and Landsat NDVI from Google Earth Engine, and returns the crop stage for the last available observation.
 - **Bring Your Own Data** — `run_crop_stage_from_dataframe(df, ...)` takes any NDVI time series in tabular format from any source. Pass `id_col` to process multiple fields in one call.
+
+Both functions work on one field at a time. For the GEE function, use a loop or `ThreadPoolExecutor` for multiple fields (see `examples/02_gee.ipynb`, Section 5).
 
 Both functions handle preprocessing internally: observations are resampled to a daily grid, gap-filled with PCHIP interpolation, and smoothed with a Whittaker filter. If your data is already daily or pre-smoothed, the effect is negligible. The stage is then assigned from three signals on the smoothed series: where the current NDVI falls relative to adaptive thresholds, whether it is rising or falling (estimated via a Kalman filter), and whether a seasonal peak has already been confirmed.
 
@@ -113,16 +115,16 @@ if result.get("Peak_date"):
 
 `fetch_ndvi` and `run_crop_stage_from_gee` accept the polygon in any of these formats:
 
-| Format | Example |
-|--------|---------|
-| File path (str or Path) | `"my_field.geojson"`, `"field.shp"`, `"fields.gpkg"`, `"field.kml"` |
-| GeoJSON dict | `{"type": "Feature", "geometry": {...}, "properties": {}}` |
-| list of `[lon, lat]` pairs | `[[-77.85, 35.62], [-77.84, 35.62], ...]` |
-| shapely Geometry | `shapely.geometry.Polygon([(lon, lat), ...])` |
-| `gpd.GeoDataFrame` | First row is used |
-| `gpd.GeoSeries` | First element is used |
+| Format | UTM supported | Where CRS is set |
+|--------|:---:|---|
+| File path — `.shp`, `.gpkg` | Yes | Embedded in file (`.prj` / file metadata) |
+| File path — `.geojson`, `.kml` | No | WGS84 by spec |
+| `gpd.GeoDataFrame` / `gpd.GeoSeries` | Yes | `.crs` attribute on the object |
+| `shapely.geometry.Polygon` | No | No CRS — WGS84 inferred from bounds |
+| GeoJSON `dict` | No | WGS84 by spec (RFC 7946) |
+| `list` of `[lon, lat]` pairs | No | WGS84 assumed |
 
-WGS84 (EPSG:4326) is assumed for bare coordinates (list, shapely, GeoJSON dict). Files and GeoDataFrames with a UTM CRS are also supported — the polygon is reprojected to WGS84 internally.
+If no CRS is found but the coordinates look like lon/lat (−180..180, −90..90), WGS84 is inferred automatically with a log warning. If no CRS is found and the coordinates don't look like WGS84, the polygon is rejected.
 
 ## Multiple fields
 
