@@ -63,14 +63,21 @@ def _polygon_input_to_gdf(polygon_input) -> tuple[gpd.GeoDataFrame | None, str]:
     Supported input types and CRS handling
     --------------------------------------
     str | Path
-        File path (GeoJSON, Shapefile, GeoPackage, KML). CRS is read from the
-        file — Shapefiles store it in the .prj sidecar, GeoPackage in file
-        metadata. GeoJSON is always WGS84 by spec. UTM files are supported.
-        If the file has no CRS and bounds look like lon/lat, WGS84 is inferred.
+        File path (GeoJSON, Shapefile, GeoPackage, KML, KMZ, zipped Shapefile).
+        CRS is read from the file — Shapefiles store it in the .prj sidecar,
+        GeoPackage in file metadata. GeoJSON is always WGS84 by spec.
+        UTM files are supported. If the file has no CRS and bounds look like
+        lon/lat, WGS84 is inferred.
 
     gpd.GeoDataFrame | gpd.GeoSeries
         First row/element is used. CRS is read from the .crs attribute.
         UTM is supported — set the CRS before passing the object.
+
+    ee.Geometry
+        GEE server-side geometry. Coordinates are retrieved via .getInfo(),
+        which makes a synchronous GEE API call. Use this when the geometry
+        already exists as an ee.Geometry (e.g. from a BigQuery/GEE pipeline).
+        When performance matters, pass the original polygon directly instead.
 
     shapely Geometry
         No CRS. WGS84 is inferred if bounds look like lon/lat (-180..180,
@@ -81,7 +88,8 @@ def _polygon_input_to_gdf(polygon_input) -> tuple[gpd.GeoDataFrame | None, str]:
         (RFC 7946). UTM not supported for this format.
 
     list
-        Ring of [lon, lat] pairs → Polygon. WGS84 assumed.
+        Ring of [lon, lat] pairs — coordinates must be in WGS84, in
+        [longitude, latitude] order. The ring may be open or closed.
         UTM not supported for this format.
     """
     if isinstance(polygon_input, (str, Path)):
@@ -124,6 +132,17 @@ def _polygon_input_to_gdf(polygon_input) -> tuple[gpd.GeoDataFrame | None, str]:
             logger.error(f"[SKIP] GeoSeries element '{label}' has no CRS and coords don't look like WGS84.")
             return None, label
         return gdf, label
+
+    try:
+        if isinstance(polygon_input, ee.Geometry):
+            logger.warning(
+                "[CRS] ee.Geometry input: calling .getInfo() to retrieve coordinates from the GEE server. "
+                "This is a synchronous API call. If performance matters, pass the original polygon "
+                "(file path, GeoJSON dict, shapely, etc.) directly instead of an ee.Geometry."
+            )
+            return _polygon_input_to_gdf(polygon_input.getInfo())
+    except Exception:
+        pass
 
     if isinstance(polygon_input, BaseGeometry):
         label = "unnamed_polygon"
