@@ -29,7 +29,7 @@ The curve is divided into five generic stages:
 
 **How the model works:**
 
-1. **Input** — the model takes a raw NDVI time series as input. NDVI can be fetched from Google Earth Engine (GEE) for GEE users, or you can bring your own data if you already have an NDVI time series.
+1. **Input** — the model takes any NDVI time series, in a tabular format, as input, regardless of source. This repository includes a built-in Google Earth Engine (GEE) integration to fetch and preprocess Sentinel-2 and Landsat NDVI automatically, but it is entirely optional — you can bring your own data, skip the GEE step, and use the model directly.
 2. **Preprocessing** — raw observations (typically irregularly spaced) are resampled to a daily grid, gap-filled using PCHIP interpolation, and then smoothed with a Whittaker filter to reduce noise while preserving the seasonal curve shape.
 3. **Stage assignment** — the stage of the last observation is determined by three signals: (1) where the current NDVI falls relative to an adaptive upper threshold (90th percentile of the series) and a fixed lower threshold, (2) the direction of change (rising or falling), estimated via a Kalman filter, and (3) whether a confirmed seasonal peak has already occurred in the series.
 
