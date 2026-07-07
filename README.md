@@ -29,8 +29,8 @@ The curve is divided into five generic stages:
 
 **Two entry points — pick the one that fits your workflow:**
 
-- **GEE users** — call `run_crop_stage_from_gee(gdf, ...)` with a GeoDataFrame of field polygons and a date range. The function fetches Sentinel-2 and Landsat NDVI from Google Earth Engine and returns the crop stage for each field's last available observation.
-- **Everyone else** — call `run_crop_stage_from_dataframe(df, ...)` with any NDVI time series in tabular format, from any source (Planet, Sentinel Hub, drone, field sensors, etc.).
+- **GEE** — `run_crop_stage_from_gee(gdf, ...)` takes a GeoDataFrame with one row per field, fetches Sentinel-2 and Landsat NDVI from Google Earth Engine, and returns the crop stage for each field's last available observation. Multiple fields are processed in parallel.
+- **Bring Your Own Data** — `run_crop_stage_from_dataframe(df, ...)` takes any NDVI time series in tabular format from any source. Pass `id_col` to process multiple fields in one call.
 
 Both functions handle preprocessing internally: observations are resampled to a daily grid, gap-filled with PCHIP interpolation, and smoothed with a Whittaker filter. If your data is already daily or pre-smoothed, the effect is negligible. The stage is then assigned from three signals on the smoothed series: where the current NDVI falls relative to adaptive thresholds, whether it is rising or falling (estimated via a Kalman filter), and whether a seasonal peak has already been confirmed.
 
