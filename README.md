@@ -27,11 +27,12 @@ The curve is divided into five generic stages:
 | **D** | Senescence | NDVI in mid-range and falling, peak confirmed |
 | **E** | Post-harvest / residue / bare soil | NDVI below lower threshold, peak confirmed |
 
-**How the model works:**
+**Two entry points — pick the one that fits your workflow:**
 
-1. **Input** — the model takes any NDVI time series, in a tabular format, as input, regardless of source. This repository includes a built-in Google Earth Engine (GEE) integration to fetch and preprocess Sentinel-2 and Landsat NDVI automatically, but it is entirely optional — you can bring your own data, skip the GEE step, and use the model directly.
-2. **Preprocessing** — raw observations (typically irregularly spaced) are resampled to a daily grid, gap-filled using PCHIP interpolation, and then smoothed with a Whittaker filter to reduce noise while preserving the seasonal curve shape.
-3. **Stage assignment** — the stage of the last observation is determined by three signals: (1) where the current NDVI falls relative to an adaptive upper threshold (90th percentile of the series) and a fixed lower threshold, (2) the direction of change (rising or falling), estimated via a Kalman filter, and (3) whether a confirmed seasonal peak has already occurred in the series.
+- **GEE users** — call `run_crop_stage_from_gee(gdf, ...)` with a GeoDataFrame of field polygons and a date range. The function fetches Sentinel-2 and Landsat NDVI from Google Earth Engine and returns the crop stage for each field's last available observation.
+- **Everyone else** — call `run_crop_stage_from_dataframe(df, ...)` with any NDVI time series in tabular format, from any source (Planet, Sentinel Hub, drone, field sensors, etc.).
+
+Both functions handle preprocessing internally: observations are resampled to a daily grid, gap-filled with PCHIP interpolation, and smoothed with a Whittaker filter. If your data is already daily or pre-smoothed, the effect is negligible. The stage is then assigned from three signals on the smoothed series: where the current NDVI falls relative to adaptive thresholds, whether it is rising or falling (estimated via a Kalman filter), and whether a seasonal peak has already been confirmed.
 
 ## Installation
 
