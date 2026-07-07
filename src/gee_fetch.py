@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import logging
 import warnings
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
@@ -35,7 +34,6 @@ import geopandas as gpd
 import pandas as pd
 import shapely.geometry
 from shapely.geometry.base import BaseGeometry
-from tqdm import tqdm
 
 from crop_stage import smooth_daily_interpolate_ndvi, estimate_stage_adaptive
 
@@ -672,90 +670,68 @@ def fetch_ndvi(
 
 
 # ---------------------------------------------------------------------------
-# Full GEE → stage pipeline (batch over many polygons)
+# Full GEE → stage pipeline
 # ---------------------------------------------------------------------------
 
-def _run_single_gee(single_row_gdf, field_id, end_date, lookback_days, id_col):
-    start_date = (pd.Timestamp(end_date) - pd.Timedelta(days=lookback_days)).strftime("%Y-%m-%d")
-    no_result = {id_col: field_id, "crop_stage": None, "stage_description": None, "peak_date": None, "days_since_peak": None, "last_date": None}
-    try:
-        ndvi_df = fetch_ndvi(single_row_gdf, start_date=start_date, end_date=end_date, poly_name=str(field_id))
-        if ndvi_df.empty or len(ndvi_df) < 3:
-            return no_result
-        df_smooth = smooth_daily_interpolate_ndvi(ndvi_df)
-        result = estimate_stage_adaptive(df_smooth["NDVI_smooth"].to_numpy(), dates=df_smooth["date"])
-        return {
-            id_col:              field_id,
-            "crop_stage":        result["Stage"],
-            "stage_description": result["Stage_description"],
-            "peak_date":         result.get("Peak_date"),
-            "days_since_peak":   result.get("Days_since_peak"),
-            "last_date":         result.get("Last_date"),
-        }
-    except Exception as e:
-        logger.error(f"Crop stage failed for {field_id}: {e}")
-        return no_result
-
-
 def run_crop_stage_from_gee(
-    gdf: gpd.GeoDataFrame,
-    id_col: str = "field_id",
+    polygon_input,
     lookback_days: int = 150,
-    max_workers: int = 16,
     end_date: str | None = None,
-) -> gpd.GeoDataFrame:
+) -> dict:
     """
-    Fetch GEE NDVI and estimate the crop stage for every polygon in a GeoDataFrame.
+    Fetch NDVI from GEE for a polygon and return the current crop stage.
 
-    This is the full end-to-end GEE pipeline. Call ``ee.Initialize()`` first.
+    End-to-end GEE entry point. Call ``ee.Initialize()`` before using this.
 
     Parameters
     ----------
-    gdf : gpd.GeoDataFrame
-        One row per field. Must contain ``id_col`` and a geometry column.
-    id_col : str   Column name for the unique field identifier (default ``"field_id"``).
-    lookback_days : int   Days of NDVI history to fetch (default 150).
-    max_workers : int   Thread pool size (default 16).
+    polygon_input
+        The field polygon. Accepted formats:
+
+        - ``str`` or ``Path`` — file path: GeoJSON, Shapefile, GeoPackage, KML
+        - ``dict`` — GeoJSON Feature, FeatureCollection, or bare Geometry
+        - ``list`` of ``[lon, lat]`` pairs — WGS84 coordinates
+        - ``shapely.geometry.Polygon`` — coordinates must be in WGS84
+        - ``gpd.GeoDataFrame`` or ``gpd.GeoSeries`` — first row/element used
+
+        Files and GeoDataFrames with a UTM CRS are supported; the polygon is
+        reprojected to WGS84 internally before querying GEE.
+
+    lookback_days : int
+        Days of NDVI history to fetch before ``end_date`` (default 150).
     end_date : str or None
-        End date ``"YYYY-MM-DD"`` for the NDVI fetch window. Defaults to
-        tomorrow when None — GEE's ``filterDate`` is exclusive on the end date,
-        so using tomorrow ensures today's satellite acquisitions are included.
+        End date ``"YYYY-MM-DD"``. Defaults to tomorrow — GEE's
+        ``filterDate`` is exclusive on the end date, so using tomorrow
+        ensures today's satellite acquisitions are included.
         Set to a past date for historical analysis.
 
     Returns
     -------
-    gpd.GeoDataFrame
-        Input GeoDataFrame with added columns:
-        ``[crop_stage, stage_description, peak_date, days_since_peak, last_date]``.
+    dict
+        Same keys as ``estimate_stage_adaptive``: ``Stage``,
+        ``Stage_description``, ``Value``, ``Velocity``, ``Peak_date``,
+        ``Days_since_peak``, ``Last_date``, ``Upper_threshold``,
+        ``Lower_threshold``. Returns ``Stage="Insufficient Data"`` if no
+        valid NDVI observations were found in the requested window.
 
     Example
     -------
-    >>> import ee, geopandas as gpd
+    >>> import ee
     >>> ee.Initialize()
     >>> from gee_fetch import run_crop_stage_from_gee
-    >>> gdf = gpd.read_file("my_fields.geojson")
-    >>> results = run_crop_stage_from_gee(gdf, id_col="FID", lookback_days=180)
-    >>> print(results[["FID", "crop_stage", "days_since_peak"]])
+    >>> result = run_crop_stage_from_gee("my_field.geojson", lookback_days=180)
+    >>> print(result["Stage"], result["Stage_description"])
     """
     end_date = (
         (pd.Timestamp.today() + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
         if end_date is None
         else end_date
     )
-    logger.info(f"Running GEE crop stage for {len(gdf)} fields (lookback={lookback_days} days)")
+    start_date = (pd.Timestamp(end_date) - pd.Timedelta(days=lookback_days)).strftime("%Y-%m-%d")
 
-    results = []
-    with ThreadPoolExecutor(max_workers=max_workers) as exc:
-        futures = {
-            exc.submit(_run_single_gee, gdf.loc[[idx]], row[id_col], end_date, lookback_days, id_col): row[id_col]
-            for idx, row in gdf.iterrows()
-        }
-        for f in tqdm(as_completed(futures), total=len(futures)):
-            results.append(f.result())
+    ndvi_df = fetch_ndvi(polygon_input, start_date=start_date, end_date=end_date)
+    if ndvi_df.empty or len(ndvi_df) < 3:
+        return estimate_stage_adaptive([])
 
-    results_df = pd.DataFrame(results).set_index(id_col)
-    gdf = gdf.set_index(id_col).copy()
-    for col in ["crop_stage", "stage_description", "peak_date", "days_since_peak", "last_date"]:
-        if col in results_df.columns:
-            gdf[col] = results_df[col]
-    return gdf.reset_index()
+    df_smooth = smooth_daily_interpolate_ndvi(ndvi_df)
+    return estimate_stage_adaptive(df_smooth["NDVI_smooth"].to_numpy(), dates=df_smooth["date"])

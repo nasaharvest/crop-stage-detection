@@ -101,19 +101,9 @@ sys.path.insert(0, "src")
 import ee
 ee.Initialize()   # must come first
 
-from gee_fetch import fetch_ndvi
-from crop_stage import smooth_daily_interpolate_ndvi, estimate_stage_adaptive
+from gee_fetch import run_crop_stage_from_gee
 
-ndvi_df = fetch_ndvi(
-    "my_field.geojson",
-    start_date="2023-03-01",
-    end_date="2023-11-30",
-)
-df_smooth = smooth_daily_interpolate_ndvi(ndvi_df)
-result = estimate_stage_adaptive(
-    df_smooth["NDVI_smooth"].to_numpy(),
-    dates=df_smooth["date"],
-)
+result = run_crop_stage_from_gee("my_field.geojson", lookback_days=180)
 print(result["Stage"], "—", result["Stage_description"])
 if result.get("Peak_date"):
     print(f"Peak: {result['Peak_date'].date()}  |  Days since peak: {result['Days_since_peak']}")
@@ -121,30 +111,36 @@ if result.get("Peak_date"):
 
 ## Supported polygon input formats (GEE workflow)
 
-`fetch_ndvi` and `run_crop_stage_from_gee` accept any of the following as the `polygon_input` argument:
+`fetch_ndvi` and `run_crop_stage_from_gee` accept the polygon in any of these formats:
 
-| Input type | Example |
-|-----------|---------|
-| File path (str or Path) | `"my_field.geojson"`, `"fields.shp"`, `"fields.gpkg"`, `"field.kml"` |
+| Format | Example |
+|--------|---------|
+| File path (str or Path) | `"my_field.geojson"`, `"field.shp"`, `"fields.gpkg"`, `"field.kml"` |
 | GeoJSON dict | `{"type": "Feature", "geometry": {...}, "properties": {}}` |
+| list of `[lon, lat]` pairs | `[[-77.85, 35.62], [-77.84, 35.62], ...]` |
 | shapely Geometry | `shapely.geometry.Polygon([(lon, lat), ...])` |
 | `gpd.GeoDataFrame` | First row is used |
 | `gpd.GeoSeries` | First element is used |
-| list of `[lon, lat]` pairs | `[[lon1, lat1], [lon2, lat2], ...]` |
 
-All inputs must be in WGS84 (EPSG:4326). Coordinates are reprojected to the local UTM zone internally before fetching.
+WGS84 (EPSG:4326) is assumed for bare coordinates (list, shapely, GeoJSON dict). Files and GeoDataFrames with a UTM CRS are also supported — the polygon is reprojected to WGS84 internally.
 
-## Batch — many fields at once
+## Multiple fields
 
 ```python
-# BYOD — df contains multiple fields, each identified by a field_id column
+# BYOD — pass id_col to process all fields in one call
 from crop_stage import run_crop_stage_from_dataframe
 results = run_crop_stage_from_dataframe(df, id_col="field_id")
 # returns a DataFrame with one row per field
 
-# GEE
+# GEE — run_crop_stage_from_gee handles one polygon at a time; loop for many
+import geopandas as gpd
 from gee_fetch import run_crop_stage_from_gee
-results = run_crop_stage_from_gee(gdf, id_col="field_id", lookback_days=180)
+gdf = gpd.read_file("my_fields.geojson")
+results = []
+for _, row in gdf.iterrows():
+    field = gpd.GeoDataFrame([row], geometry="geometry", crs=gdf.crs)
+    r = run_crop_stage_from_gee(field, lookback_days=180)
+    results.append({"field_id": row["field_id"], **r})
 ```
 
 ## Project structure
