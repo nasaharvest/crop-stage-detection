@@ -109,17 +109,8 @@ python test_basic.py
 
 Worked examples are available in the notebooks:
 
-- [examples/01_byod.ipynb](examples/01_byod.ipynb) — bring-your-own-data workflow with a sample NDVI time series
-- [examples/02_gee.ipynb](examples/02_gee.ipynb) — full Google Earth Engine workflow
-
-For the input format used by the BYOD path, your DataFrame needs at minimum:
-
-| Column | Type | Notes |
-|--------|------|-------|
-| `date` | datetime | Any parseable format, irregular spacing is fine |
-| `NDVI` | float [0–1] | Cloud-free observations only |
-
-The sample CSV also contains `sensor` and `field_id` columns — these are ignored when the input is treated as a single time series and used when grouping by `id_col` for batch processing.
+- [examples/01_byod.ipynb](https://github.com/nasaharvest/crop-stage-detection/blob/main/examples/01_byod.ipynb) — bring-your-own-data workflow with a sample NDVI time series
+- [examples/02_gee.ipynb](https://github.com/nasaharvest/crop-stage-detection/blob/main/examples/02_gee.ipynb) — full Google Earth Engine workflow
 
 ## Output fields
 
