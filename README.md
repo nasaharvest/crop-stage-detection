@@ -29,8 +29,8 @@ The curve is divided into five generic stages:
 
 The input to the model is an NDVI time series in tabular format. Two entry points — pick the one that fits your workflow:
 
-- **Google Earth Engine (GEE)** — `run_crop_stage_from_gee(polygon, ...)` fetches Sentinel-2 and Landsat NDVI from GEE and returns the crop stage. `polygon` is the only required argument and accepts any supported format (see below). By default the lookback window ends today; pass `end_date="YYYY-MM-DD"` to pin it to a specific date.
-- **Bring Your Own Data** — `run_crop_stage_from_dataframe(df, ...)` takes NDVI time series in tabular format (see `sample_data/sample_ndvi.csv`). Pass `id_col` to process multiple fields in one call; omit it for a single field.
+- **Google Earth Engine (GEE)** — `run_crop_stage_from_gee(polygon, ...)` fetches Sentinel-2 and Landsat NDVI from GEE and returns the crop stage for the last clouds free observation. `polygon` is the only required argument and accepts any supported format (see below). By default the lookback window ends today; pass `end_date="YYYY-MM-DD"` to pin it to a specific date.
+- **Bring Your Own Data** — `run_crop_stage_from_dataframe(df, ...)` takes NDVI time series in tabular format (see `sample_data/sample_ndvi.csv`). If `id_col` is provided, the model runs by unique `id_col` groups (groupby); if `id_col` is not provided, it treats the input as a single time series.
 
 The GEE function works on one polygon at a time. For multiple fields, use a loop or `ThreadPoolExecutor` (see `examples/02_gee.ipynb`, Section 5).
 
@@ -105,86 +105,21 @@ To verify the installation:
 python test_basic.py
 ```
 
-## Quick start — Bring Your Own Data (no GEE)
+## Examples
 
-```python
-import sys
-sys.path.insert(0, "src")
+Worked examples are available in the notebooks:
 
-import pandas as pd
-from crop_stage import run_crop_stage_from_dataframe
+- [examples/01_byod.ipynb](examples/01_byod.ipynb) — bring-your-own-data workflow with a sample NDVI time series
+- [examples/02_gee.ipynb](examples/02_gee.ipynb) — full Google Earth Engine workflow
 
-df = pd.read_csv("sample_data/sample_ndvi.csv", parse_dates=["date"])
-result = run_crop_stage_from_dataframe(df)
-print(result["Stage"], "—", result["Stage_description"])
-```
-
-**Input format** — your DataFrame needs at minimum:
+For the input format used by the BYOD path, your DataFrame needs at minimum:
 
 | Column | Type | Notes |
 |--------|------|-------|
 | `date` | datetime | Any parseable format, irregular spacing is fine |
 | `NDVI` | float [0–1] | Cloud-free observations only |
 
-The sample CSV also contains `sensor` and `field_id` columns — these are ignored in single-field mode and used only in the multi-field batch example.
-
-## Quick start — GEE fetch
-
-```python
-import sys
-sys.path.insert(0, "src")
-
-import ee
-ee.Initialize()   # must come first
-
-from gee_fetch import run_crop_stage_from_gee
-
-result = run_crop_stage_from_gee("my_field.geojson", lookback_days=180)
-print(result["Stage"], "—", result["Stage_description"])
-if result.get("Peak_date"):
-    print(f"Peak: {result['Peak_date'].date()}  |  Days since peak: {result['Days_since_peak']}")
-```
-
-## Multiple fields
-
-```python
-# BYOD — pass id_col to process all fields in one call
-from crop_stage import run_crop_stage_from_dataframe
-results = run_crop_stage_from_dataframe(df, id_col="field_id")
-# returns a DataFrame with one row per field
-
-# GEE — run_crop_stage_from_gee handles one polygon at a time; loop for many
-import geopandas as gpd
-from gee_fetch import run_crop_stage_from_gee
-gdf = gpd.read_file("my_fields.geojson")
-results = []
-for _, row in gdf.iterrows():
-    field = gpd.GeoDataFrame([row], geometry="geometry", crs=gdf.crs)
-    r = run_crop_stage_from_gee(field, lookback_days=180)
-    results.append({"field_id": row["field_id"], **r})
-```
-
-## Project structure
-
-```
-crop-stage-detection/
-├── src/
-│   ├── crop_stage.py       Core model (no GEE dependency)
-│   └── gee_fetch.py        Optional GEE layer
-├── examples/
-│   ├── 01_byod.ipynb       BYOD walkthrough with visualisation
-│   └── 02_gee.ipynb        Full GEE pipeline
-├── sample_data/
-│   └── sample_ndvi.csv     One field × one season (works out of the box)
-├── docs/
-│   ├── crop_stages_legend.png
-│   └── crop_stage_detection.gif
-├── requirements.txt        Core dependencies (BYOD)
-├── requirements-gee.txt    Additional dependencies for GEE workflow
-├── CITATION.cff
-├── LICENSE
-└── test_basic.py           Smoke test — run after install to verify
-```
+The sample CSV also contains `sensor` and `field_id` columns — these are ignored when the input is treated as a single time series and used when grouping by `id_col` for batch processing.
 
 ## Output fields
 
