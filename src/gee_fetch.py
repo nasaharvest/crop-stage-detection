@@ -711,6 +711,7 @@ def run_crop_stage_from_gee(
     polygon_input,
     lookback_days: int = 150,
     end_date: str | None = None,
+    **estimate_kwargs,
 ) -> dict:
     """
     Fetch NDVI from GEE for a polygon and return the current crop stage.
@@ -738,6 +739,9 @@ def run_crop_stage_from_gee(
         ``filterDate`` is exclusive on the end date, so using tomorrow
         ensures today's satellite acquisitions are included.
         Set to a past date for historical analysis.
+    **estimate_kwargs
+        Additional keyword arguments forwarded to ``estimate_stage_adaptive``
+        (for example ``lower_threshold=0.30`` or ``upper_percentile=95``).
 
     Returns
     -------
@@ -765,7 +769,11 @@ def run_crop_stage_from_gee(
 
     ndvi_df = fetch_ndvi(polygon_input, start_date=start_date, end_date=end_date)
     if ndvi_df.empty or len(ndvi_df) < 3:
-        return estimate_stage_adaptive([])
+        return estimate_stage_adaptive([], **estimate_kwargs)
 
     df_smooth = smooth_daily_interpolate_ndvi(ndvi_df)
-    return estimate_stage_adaptive(df_smooth["NDVI_smooth"].to_numpy(), dates=df_smooth["date"])
+    return estimate_stage_adaptive(
+        df_smooth["NDVI_smooth"].to_numpy(),
+        dates=df_smooth["date"],
+        **estimate_kwargs,
+    )

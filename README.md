@@ -29,8 +29,8 @@ The curve is divided into five generic stages:
 
 The input to the model is an NDVI time series in tabular format. Two entry points — pick the one that fits your workflow:
 
-- **Google Earth Engine (GEE)** — `run_crop_stage_from_gee(polygon, ...)` fetches Sentinel-2 and Landsat NDVI from GEE and returns the crop stage for the last clouds free observation. `polygon` is the only required argument and accepts any supported format (see below). By default the lookback window ends today; pass `end_date="YYYY-MM-DD"` to pin it to a specific date.
 - **Bring Your Own Data** — `run_crop_stage_from_dataframe(df, ...)` takes NDVI time series in tabular format (see `sample_data/sample_ndvi.csv`). If `id_col` is provided, the model runs by unique `id_col` groups (groupby); if `id_col` is not provided, it treats the input as a single time series.
+- **Google Earth Engine (GEE)** — `run_crop_stage_from_gee(polygon, ...)` fetches Sentinel-2 and Landsat NDVI from GEE and returns the crop stage for the last clouds free observation. `polygon` is the only required argument and accepts any supported format (see below). By default the lookback window ends today; pass `end_date="YYYY-MM-DD"` to pin it to a specific date. The same estimator settings used by the core model can also be passed through this wrapper.
 
 The GEE function works on one polygon at a time. For multiple fields, use a loop or `ThreadPoolExecutor` (see `examples/02_gee.ipynb`, Section 5).
 
@@ -84,7 +84,7 @@ cd crop-stage-detection
 If you already have an NDVI time series and just want to run the stage model:
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 **Option B — Full GEE workflow**
@@ -92,8 +92,8 @@ pip install -r requirements.txt
 If you want to fetch NDVI from GEE as well, install both files — `requirements-gee.txt` adds the GEE-specific packages on top of the core ones:
 
 ```bash
-pip install -r requirements.txt
-pip install -r requirements-gee.txt
+python -m pip install -r requirements.txt
+python -m pip install -r requirements-gee.txt
 earthengine authenticate
 ```
 
@@ -140,7 +140,7 @@ The sample CSV also contains `sensor` and `field_id` columns — these are ignor
 ## Key parameters
 
 All thresholds and filter settings are configurable and can be passed directly
-to `estimate_stage_adaptive` or `run_crop_stage_from_dataframe`.
+to `estimate_stage_adaptive`, `run_crop_stage_from_dataframe`, or `run_crop_stage_from_gee`.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|

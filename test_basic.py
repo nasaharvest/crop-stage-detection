@@ -4,6 +4,9 @@ Quick smoke test — run from the repo root:
 """
 
 import sys
+import types
+from unittest.mock import patch
+
 sys.path.insert(0, "src")
 
 print("1. Importing crop_stage...", end=" ")
@@ -51,5 +54,17 @@ assert len(df_multi) == df_all["field_id"].nunique()
 assert "crop_stage" in df_multi.columns
 print(f"OK ({len(df_multi)} field(s))")
 print(df_multi[["field_id", "crop_stage", "stage_description", "peak_date", "days_since_peak"]].to_string(index=False))
+
+print("7. run_crop_stage_from_gee forwards estimator kwargs...", end=" ")
+ee_stub = types.ModuleType("ee")
+ee_stub.Initialize = lambda *args, **kwargs: None
+sys.modules["ee"] = ee_stub
+from gee_fetch import run_crop_stage_from_gee
+
+with patch("gee_fetch.fetch_ndvi", return_value=pd.DataFrame({"date": pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03"]), "NDVI": [0.2, 0.4, 0.3]})), patch("gee_fetch.smooth_daily_interpolate_ndvi", side_effect=lambda frame: frame.assign(NDVI_smooth=frame["NDVI"])), patch("gee_fetch.estimate_stage_adaptive", return_value={"Stage": "B", "Stage_description": "Greenup / rapid growth", "Value": 0.3, "Velocity": 0.0, "Last_date": None, "Peak_date": None, "Days_since_peak": None, "Upper_threshold": 0.6, "Lower_threshold": 0.3}) as mock_estimate:
+    result = run_crop_stage_from_gee("dummy.geojson", lower_threshold=0.2)
+assert result["Stage"] == "B"
+assert mock_estimate.call_args.kwargs["lower_threshold"] == 0.2
+print("OK")
 
 print("\nAll tests passed.")
