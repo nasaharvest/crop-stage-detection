@@ -139,8 +139,9 @@ The sample CSV also contains `sensor` and `field_id` columns — these are ignor
 
 ## Key parameters
 
-All thresholds and filter settings are configurable and can be passed directly
-to `estimate_stage_adaptive`, `run_crop_stage_from_dataframe`, or `run_crop_stage_from_gee`.
+All thresholds and filter settings are configurable and can be passed to the
+DataFrame and GEE workflows, where they are forwarded to
+`estimate_stage_adaptive` internally.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
