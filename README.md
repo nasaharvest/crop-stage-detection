@@ -31,7 +31,7 @@ The curve is divided into five generic stages:
 
 The model expects an NDVI time series in tabular format. Two entry points — pick the one that fits your workflow:
 
-- **Bring Your Own Data** — `run_crop_stage_from_dataframe(df, ...)` takes NDVI time series in tabular format (see [sample_data/sample_ndvi.csv](sample_data/sample_ndvi.csv)) and returns the crop stage for the last observation in the input series. If `id_col` is provided, the model runs by unique `id_col` groups (groupby); if `id_col` is not provided, it treats the input as a single time series.
+- **Bring Your Own Data** — `run_crop_stage_from_dataframe(df, ...)` takes NDVI time series in tabular format and returns the crop stage for the last observation in the input series. The required columns are `date` and `NDVI`. If `id_col` is provided, the model runs by unique `id_col` groups (groupby); if `id_col` is not provided, it treats the input as a single time series.
 - **Google Earth Engine (GEE)** — `run_crop_stage_from_gee(polygon, ...)` fetches Sentinel-2 and Landsat NDVI from GEE and returns the crop stage for the last clouds free observation. `polygon` is the only required argument and accepts any supported format (see below). By default, the lookback window covers the previous 150 days up to the current date. Both the lookback window and the end date are configurable through the `lookback_days` and `end_date` parameters. You can also pass the same crop-stage tuning parameters shown in the [Key parameters](#key-parameters) section through this wrapper. The GEE function works on one polygon at a time; for multiple fields, use a loop or `ThreadPoolExecutor` (see [examples/02_gee.ipynb](examples/02_gee.ipynb), Section 5).
 
 Both functions handle preprocessing internally: observations are resampled to one value per day, gap-filled with PCHIP interpolation, and smoothed with a Whittaker filter. Input observations are first converted into a daily NDVI series. If the input observed date range is shorter than 30 days, the processed series will contain fewer than 30 points and the model will return an "Insufficient Data" result. If your data is already daily or pre-smoothed, the effect on your NDVI values is negligible. The stage is then assigned from three signals on the smoothed series:
@@ -54,7 +54,7 @@ Stage assignment:
 
 ## Outputs
 
-`estimate_stage_adaptive` returns a dict with:
+The output returns a dict with:
 
 | Key | Type | Description |
 |-----|------|-------------|
@@ -70,9 +70,7 @@ Stage assignment:
 
 ### Supported polygon input formats (GEE workflow)
 
-`fetch_ndvi` and `run_crop_stage_from_gee` accept the polygon in any of these
-formats. Sample files for each format are in [sample_data](sample_data/) and demonstrated
-in [examples/02_gee.ipynb](examples/02_gee.ipynb).
+The polygon can be provided in any of these formats. Sample files for each format are in [sample_data](sample_data/) and demonstrated in [examples/02_gee.ipynb](examples/02_gee.ipynb).
 
 | Format | UTM supported | Where CRS is set |
 |--------|:---:|---|
@@ -125,8 +123,8 @@ python test_basic.py
 
 Worked examples are available in the notebooks:
 
-- [examples/01_byod.ipynb](https://github.com/nasaharvest/crop-stage-detection/blob/main/examples/01_byod.ipynb) — bring-your-own-data workflow with a sample NDVI time series
-- [examples/02_gee.ipynb](https://github.com/nasaharvest/crop-stage-detection/blob/main/examples/02_gee.ipynb) — full Google Earth Engine workflow
+- [examples/01_byod.ipynb](examples/01_byod.ipynb) — bring-your-own-data workflow with a sample NDVI time series
+- [examples/02_gee.ipynb](examples/02_gee.ipynb) — full Google Earth Engine workflow
 
 ## Key parameters
 
