@@ -27,14 +27,14 @@ The curve is divided into five generic stages:
 | **D** | Senescence | NDVI in mid-range and falling, peak confirmed |
 | **E** | Post-harvest / residue / bare soil | NDVI below lower threshold, peak confirmed |
 
-The input to the model is an NDVI time series in tabular format. Two entry points — pick the one that fits your workflow:
+## Inputs
 
-- **Bring Your Own Data** — `run_crop_stage_from_dataframe(df, ...)` takes NDVI time series in tabular format (see `sample_data/sample_ndvi.csv`). If `id_col` is provided, the model runs by unique `id_col` groups (groupby); if `id_col` is not provided, it treats the input as a single time series.
-- **Google Earth Engine (GEE)** — `run_crop_stage_from_gee(polygon, ...)` fetches Sentinel-2 and Landsat NDVI from GEE and returns the crop stage for the last clouds free observation. `polygon` is the only required argument and accepts any supported format (see below). By default the lookback window ends today; pass `end_date="YYYY-MM-DD"` to pin it to a specific date. The same estimator settings used by the core model can also be passed through this wrapper.
+The model expects an NDVI time series in tabular format. Two entry points — pick the one that fits your workflow:
 
-The GEE function works on one polygon at a time. For multiple fields, use a loop or `ThreadPoolExecutor` (see `examples/02_gee.ipynb`, Section 5).
+- **Bring Your Own Data** — `run_crop_stage_from_dataframe(df, ...)` takes NDVI time series in tabular format (see [sample_data/sample_ndvi.csv](sample_data/sample_ndvi.csv)) and returns the crop stage for the last observation in the input series. If `id_col` is provided, the model runs by unique `id_col` groups (groupby); if `id_col` is not provided, it treats the input as a single time series.
+- **Google Earth Engine (GEE)** — `run_crop_stage_from_gee(polygon, ...)` fetches Sentinel-2 and Landsat NDVI from GEE and returns the crop stage for the last clouds free observation. `polygon` is the only required argument and accepts any supported format (see below). By default, the lookback window covers the previous 150 days up to the current date. Both the lookback window and the end date are configurable through the `lookback_days` and `end_date` parameters. You can also pass the same crop-stage tuning parameters shown in the [Key parameters](#key-parameters) section through this wrapper. The GEE function works on one polygon at a time; for multiple fields, use a loop or `ThreadPoolExecutor` (see [examples/02_gee.ipynb](examples/02_gee.ipynb), Section 5).
 
-Both functions handle preprocessing internally: observations are resampled to daily intervals, gap-filled with PCHIP interpolation, and smoothed with a Whittaker filter. If your data is already daily or pre-smoothed, the effect on your NDVI values is negligible. The stage is then assigned from three signals on the smoothed series:
+Both functions handle preprocessing internally: observations are resampled to one value per day, gap-filled with PCHIP interpolation, and smoothed with a Whittaker filter. Input observations are first converted into a daily NDVI series. If the input observed date range is shorter than 30 days, the processed series will contain fewer than 30 points and the model will return an "Insufficient Data" result. If your data is already daily or pre-smoothed, the effect on your NDVI values is negligible. The stage is then assigned from three signals on the smoothed series:
 
 | Signal | Description |
 |--------|-------------|
@@ -52,11 +52,27 @@ Stage assignment:
 | D — Senescence | Between thresholds | Falling | Yes |
 | E — Post-harvest / residue / bare soil | Below lower threshold | Any | Yes |
 
+## Outputs
+
+`estimate_stage_adaptive` returns a dict with:
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `Stage` | str | Stage label: A, B, C, D, E, or "Insufficient Data" |
+| `Stage_description` | str | Human-readable stage name |
+| `Value` | float | NDVI at the last observation |
+| `Velocity` | float or None | Kalman-estimated rate of change (NDVI/day); None for stage C and "Insufficient Data" |
+| `Last_date` | Timestamp or None | Date of the last observation |
+| `Peak_date` | Timestamp or None | Date of the detected seasonal peak (None if no peak confirmed) |
+| `Days_since_peak` | int | Days elapsed since peak (or None) |
+| `Upper_threshold` | float or None | Adaptive upper threshold used; None for "Insufficient Data" |
+| `Lower_threshold` | float | Fixed lower threshold used |
+
 ### Supported polygon input formats (GEE workflow)
 
 `fetch_ndvi` and `run_crop_stage_from_gee` accept the polygon in any of these
-formats. Sample files for each format are in `sample_data/` and demonstrated
-in `examples/02_gee.ipynb`.
+formats. Sample files for each format are in [sample_data](sample_data/) and demonstrated
+in [examples/02_gee.ipynb](examples/02_gee.ipynb).
 
 | Format | UTM supported | Where CRS is set |
 |--------|:---:|---|
@@ -89,7 +105,7 @@ python -m pip install -r requirements.txt
 
 **Option B — Full GEE workflow**
 
-If you want to fetch NDVI from GEE as well, install both files — `requirements-gee.txt` adds the GEE-specific packages on top of the core ones:
+If you want to fetch NDVI from GEE as well, install both files — [requirements-gee.txt](requirements-gee.txt) adds the GEE-specific packages on top of the core ones:
 
 ```bash
 python -m pip install -r requirements.txt
@@ -97,7 +113,7 @@ python -m pip install -r requirements-gee.txt
 earthengine authenticate
 ```
 
-For GEE authentication, see the [Earth Engine authentication guide](https://developers.google.com/earth-engine/guides/auth).
+The GEE workflow requires Earth Engine authentication before you can run the example or API calls. See the [Earth Engine authentication guide](https://developers.google.com/earth-engine/guides/auth).
 
 To verify the installation:
 
@@ -111,22 +127,6 @@ Worked examples are available in the notebooks:
 
 - [examples/01_byod.ipynb](https://github.com/nasaharvest/crop-stage-detection/blob/main/examples/01_byod.ipynb) — bring-your-own-data workflow with a sample NDVI time series
 - [examples/02_gee.ipynb](https://github.com/nasaharvest/crop-stage-detection/blob/main/examples/02_gee.ipynb) — full Google Earth Engine workflow
-
-## Output fields
-
-`estimate_stage_adaptive` returns a dict with:
-
-| Key | Type | Description |
-|-----|------|-------------|
-| `Stage` | str | Stage label: A, B, C, D, E, or "Insufficient Data" |
-| `Stage_description` | str | Human-readable stage name |
-| `Value` | float | NDVI at the last observation |
-| `Velocity` | float or None | Kalman-estimated rate of change (NDVI/day); None for stage C and "Insufficient Data" |
-| `Last_date` | Timestamp or None | Date of the last observation |
-| `Peak_date` | Timestamp or None | Date of the detected seasonal peak (None if no peak confirmed) |
-| `Days_since_peak` | int | Days elapsed since peak (or None) |
-| `Upper_threshold` | float or None | Adaptive upper threshold used; None for "Insufficient Data" |
-| `Lower_threshold` | float | Fixed lower threshold used |
 
 ## Key parameters
 

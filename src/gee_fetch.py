@@ -265,11 +265,8 @@ def prepare_polygon_for_gee(
             [geom_wgs84] if geom_wgs84.geom_type == "Polygon" else list(geom_wgs84.geoms)
         )
 
-        if geom.geom_type == "Polygon":
-            if len(polygons) == 1:
-                return ee.Geometry.Polygon([list(polygons[0].exterior.coords)]), label
-            coords = [[list(p.exterior.coords)] for p in polygons]
-            return ee.Geometry.MultiPolygon(coords), label
+        if len(polygons) == 1:
+            return ee.Geometry.Polygon([list(polygons[0].exterior.coords)]), label
 
         if not split_multipolygon:
             coords = [[list(p.exterior.coords)] for p in polygons]
@@ -343,7 +340,7 @@ def _calculate_sentinel2_data(
     scl_pct = ee.Number(ee.Algorithms.If(total_px.gt(0), cloud_px.divide(total_px).multiply(100).round(), 0))
 
     result = s2_img.set({"date": date, "poly_name": poly_name, "scl_clouds_percent": scl_pct})
-    result = result.set(cs_band.reduceRegion(reducer=ee.Reducer.percentile([10]), geometry=ee_geom, scale=10).rename(["cs_p10"], ["p10_cs"]))
+    result = result.set(cs_band.reduceRegion(reducer=ee.Reducer.percentile([10]), geometry=ee_geom, scale=10).rename(["cs"], ["p10_cs"]))
 
     optical_bands = [b for b in bands_list if "B" in b]
     if optical_bands:
@@ -429,7 +426,7 @@ def _calculate_landsat_data(image: ee.Image, ee_geom: ee.Geometry, poly_name: st
 
     result = image.set({"date": date, "poly_name": poly_name}).set(total_px).set(valid_px)
 
-    sr_bands = [b for b in bands_list if b.startswith("SR_") or b.startswith("ST_")]
+    sr_bands = [b for b in bands_list if b.startswith("SR_") or b == "ST_B10_C"]
     if sr_bands:
         result = result.set(img_masked.select(sr_bands).reduceRegion(reducer=ee.Reducer.mean(), geometry=ee_geom, scale=30))
     if "NDVI" in bands_list:
@@ -602,7 +599,7 @@ def remove_clouds_landsat(
     df = df.copy().dropna(subset=["NDVI"])
     df = df[df["total_pixels"] > 0]
     df["pct_clear"] = (100 * df["valid_pixels"] / df["total_pixels"]).round()
-    df = df[df["pct_clear"] > min_pct_clear]
+    df = df[df["pct_clear"] >= min_pct_clear]
     df = (
         df.sort_values("pct_clear", ascending=False)
         .drop_duplicates("date", keep="first")
