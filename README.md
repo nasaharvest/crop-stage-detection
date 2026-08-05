@@ -4,8 +4,6 @@ A crop-agnostic model for estimating the crop stage from an NDVI time series —
 
 ![Crop Stage Detection Demo](docs/crop_stage_detection.gif)
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nasaharvest/crop-stage-detection/blob/main/examples/01_byod.ipynb)
-
 ## How it works
 
 Most row crops and vegetables follow the same characteristic NDVI trajectory
