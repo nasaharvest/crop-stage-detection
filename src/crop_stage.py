@@ -498,4 +498,5 @@ def run_crop_stage_from_dataframe(
         for f in tqdm(as_completed(futures), total=len(futures)):
             results.append(f.result())
 
-    return pd.DataFrame(results)
+    # as_completed yields in finishing order; give callers a stable row order.
+    return pd.DataFrame(results).sort_values(id_col).reset_index(drop=True)

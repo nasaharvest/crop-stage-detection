@@ -52,6 +52,7 @@ print("6. run_crop_stage_from_dataframe (multi-field via id_col)...", end=" ")
 df_multi = run_crop_stage_from_dataframe(df_all, id_col="field_id")
 assert len(df_multi) == df_all["field_id"].nunique()
 assert "crop_stage" in df_multi.columns
+assert df_multi["field_id"].tolist() == sorted(df_all["field_id"].unique().tolist())
 print(f"OK ({len(df_multi)} field(s))")
 print(df_multi[["field_id", "crop_stage", "stage_description", "peak_date", "days_since_peak"]].to_string(index=False))
 
